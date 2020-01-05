@@ -1,0 +1,35 @@
+FROM alpine:latest
+
+LABEL MAINTAINER="David Koenig <dave@frickeldave.de>"
+
+ARG IMAGE_NAME=frickeldave/alpine
+ARG IMAGE_VERSION=1.1
+
+
+# add local user "appuser" which is used to run the application
+RUN adduser -D -h "/home/appuser" -u 55000 -g 55000 -s /bin/sh appuser \
+	&& mkdir /home/appuser/data \
+	&& mkdir /home/appuser/data/certificates \
+	&& mkdir /home/appuser/app \
+	&& mkdir /home/appuser/app/helper \
+	&& chown -R appuser:appuser /home/appuser/data \
+	&& chown -R appuser:appuser /home/appuser/data/certificates \
+	&& chown -R appuser:appuser /home/appuser/app \
+	&& chown -R appuser:appuser /home/appuser/app/helper
+
+COPY ./setup/createcerts.sh /home/appuser/app/helper/createcerts.sh
+RUN chown appuser:appuser /home/appuser/app/helper/createcerts.sh \
+	&& chmod +x /home/appuser/app/helper/createcerts.sh
+
+# add required root certificates and import them into trusted certificate bundle
+RUN mkdir /usr/local/share/ca-certificates
+COPY ./certificates/* /usr/local/share/ca-certificates/
+
+RUN apk update \
+	&& apk --no-cache add jq \
+	curl \
+	ca-certificates \
+	openssl \
+	&& rm -rf /var/lib/apt/lists/* \
+	&& rm -rf /var/cache/apk/* \
+	&& update-ca-certificates --fresh 2>/dev/null || true
